@@ -35,7 +35,7 @@ class AREditorWindow(QMainWindow):
 
         self.fileMenu = self.menubar.addMenu('&File')
 
-        openAction = QAction('&Open', self)
+        openAction = QAction('&Open Directory', self)
         openAction.triggered.connect(self.openActiontriggered)
         self.fileMenu.addAction(openAction)
 

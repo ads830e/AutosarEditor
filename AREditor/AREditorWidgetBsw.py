@@ -189,7 +189,7 @@ class AREditorWidgetBsw(AREditorWidgetBase):
                 pass
 
         vLayout.addLayout(BswDetailItem(BswDetailItemType.STRING,
-                                        name='ShortName',
+                                        name='SHORT-NAME',
                                         value=shortname,
                                         labelminwidth=250))
 
@@ -216,11 +216,24 @@ class AREditorWidgetBsw(AREditorWidgetBase):
                 pass
             if moddef.PARAMETERS.ECUC_ENUMERATION_PARAM_DEF:
                 for parmdef in moddef.PARAMETERS.ECUC_ENUMERATION_PARAM_DEF:
+                    enums:list=list()
+                    if parmdef.LITERALS:
+                        if parmdef.LITERALS.ECUC_ENUMERATION_LITERAL_DEF:
+                            for ENUM_DEF in parmdef.LITERALS.ECUC_ENUMERATION_LITERAL_DEF:
+                                enumname=self.aRTool.GetARObjectShortName(ENUM_DEF)
+                                if enumname:
+                                    enums.append(enumname)
+                                    pass
+                                pass
+                            pass
+                        pass
+
                     valobj = self.GetCfgValObj(parmdef, modcfgs)
                     val = self.GetCfgVal(valobj)
                     vLayout.addLayout(BswDetailItem(BswDetailItemType.ENUM,
                                                     self.aRTool.GetARObjectShortName(parmdef),
                                                     value=val,
+                                                    enums=enums,
                                                     labelminwidth=250))
                     pass
                 pass
@@ -603,6 +616,9 @@ class BswDetailItem(QVBoxLayout):
         elif itemtype == BswDetailItemType.ENUM:
             self.__EnumComboBox = QComboBox()
             self.__EnumComboBox.setEditable(True)
+            if enums:
+                self.__EnumComboBox.addItems(enums)
+
             HBoxLayout.addWidget(self.__EnumComboBox)
             HBoxLayout.setStretch(1, 1)
             space = QFrame()
