@@ -35,13 +35,32 @@ class AREditorWidgetAdaptive(AREditorWidgetBase):
             return list()
         ret = list()
 
-        moddefs = list()
-        if self.aRTool.TypeToObjectsDict.__contains__(AUTOSAR_00049_STRICT_COMPACT.ECUC_MODULE_DEF):
-            moddefs = self.aRTool.TypeToObjectsDict[AUTOSAR_00049_STRICT_COMPACT.ECUC_MODULE_DEF]
+        ApplicationTreeWidgetItem=ArxmlContainerTreeWidgetItem(None, 'Application')
+        LibraryTreeWidgetItem=ArxmlContainerTreeWidgetItem(None, 'Library')
+        MachineTreeWidgetItem=ArxmlContainerTreeWidgetItem(None, 'Machine')
 
-        for moddef in moddefs:
-            ret = ret + self.GenTreeWidgetItemsRecursive(moddef)
+        ret.append(ApplicationTreeWidgetItem)
+        ret.append(LibraryTreeWidgetItem)
+        ret.append(MachineTreeWidgetItem)
+
+        ApplicationTreeWidgetItem.addChild(ArxmlContainerTreeWidgetItem(None, 'DataTypes'))
+        ApplicationTreeWidgetItem.addChild(ArxmlContainerTreeWidgetItem(None, 'CompuMethods'))
+        ApplicationTreeWidgetItem.addChild(ArxmlContainerTreeWidgetItem(None, 'ModeDeclarationGroups'))
+        ApplicationTreeWidgetItem.addChild(ArxmlContainerTreeWidgetItem(None, 'PortInterfaces'))
+        ApplicationTreeWidgetItem.addChild(ArxmlContainerTreeWidgetItem(None, 'SWComponents'))
+        ApplicationTreeWidgetItem.addChild(ArxmlContainerTreeWidgetItem(None, 'Executables'))
+
+        MachineTreeWidgetItem.addChild(ArxmlContainerTreeWidgetItem(None, 'Processes'))
+        MachineTreeWidgetItem.addChild(ArxmlContainerTreeWidgetItem(None, 'Process Designs'))
+
         return ret
 
-    def GenTreeWidgetItemsRecursive(self, ARObject) -> list:
-        return list()
+
+
+class ArxmlContainerTreeWidgetItem(QTreeWidgetItem):
+    arobject = None
+
+    def __init__(self, arobject, name=''):
+        super().__init__()
+        self.setText(0, name)
+        self.arobject = arobject

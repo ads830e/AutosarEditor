@@ -84,6 +84,11 @@ class AREditorWindow(QMainWindow):
 
         self.ClearStatusBar()
 
+        self.widget_arxml.ReloadUI()
+        self.widget_ap.ReloadUI()
+        self.widget_cp.ReloadUI()
+        self.widget_bsw.ReloadUI()
+
     def ClearStatusBar(self):
         self.statusbar.showMessage('')
 
@@ -92,8 +97,6 @@ class AREditorWindow(QMainWindow):
         return
 
     def openActiontriggered(self):
-        # QMessageBox.information(self, "Open", "Autosar Editor Developed By TuoQiang！", QMessageBox.Yes)
-
         lastdir = self._ReadSetting('AREditorWindow', 'OpenProjectDirectory')
         projdir = QFileDialog.getExistingDirectory(self, 'Open file', lastdir)
         if ARUtils.IsStrEmpty(projdir):
@@ -109,7 +112,12 @@ class AREditorWindow(QMainWindow):
         return
 
     def closeActiontriggered(self):
-        QMessageBox.information(self, "Close", "Autosar Editor Developed By TuoQiang！", QMessageBox.Yes)
+        self.aRTool.Clear()
+
+        self.widget_arxml.ReloadUI()
+        self.widget_ap.ReloadUI()
+        self.widget_cp.ReloadUI()
+        self.widget_bsw.ReloadUI()
         return
 
     def exitActiontriggered(self):

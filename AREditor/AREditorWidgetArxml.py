@@ -49,12 +49,6 @@ class AREditorWidgetArxml(AREditorWidgetBase):
         qWidget_Detail.setLayout(vLayout)
         self.qScrollArea_Detail.setWidget(qWidget_Detail)
 
-        shortname = self.aRTool.GetARObjectShortName(arobject)
-        vLayout.addLayout(ArxmlDetailItem(ArxmlDetailItemType.STRING,
-                                          name='SHORT-NAME',
-                                          value=shortname,
-                                          labelminwidth=250))
-
         if not hasattr(arobject, 'member_data_items_'):
             return
         member_data_items_ = getattr(arobject, 'member_data_items_')
@@ -62,34 +56,31 @@ class AREditorWidgetArxml(AREditorWidgetBase):
         for key in member_data_items_.keys():
             MemberSpec: AUTOSAR_00049_STRICT_COMPACT.MemberSpec_ = member_data_items_[key]
 
-            if MemberSpec.name == 'S':
-                continue
-            elif MemberSpec.name == 'T':
-                continue
-            '''
-            elif MemberSpec.name == 'UUID':
-                continue
-            elif MemberSpec.name == 'ADMIN_DATA':
-                continue
-            elif MemberSpec.name == 'SHORT_NAME_FRAGMENTS':
-                continue
-            elif MemberSpec.name == 'SHORT_NAME_PATTERN':
-                continue
-            elif MemberSpec.name == 'ANNOTATIONS':
-                continue
-            elif MemberSpec.name == 'VARIATION_POINT':
-                continue
-            elif MemberSpec.name == 'BLUEPRINT_POLICYS':
-                continue
-            '''
-
+            #if MemberSpec.container > 0:
+            #    continue
 
             try:
-                attrval = getattr(arobject, MemberSpec.name)
                 attrname = MemberSpec.child_attrs['name']
-                vLayout.addLayout(ArxmlDetailItem(ArxmlDetailItemType.STRING,
-                                                  name=attrname,
-                                                  labelminwidth=250))
+                attrtype=getattr(AUTOSAR_00049_STRICT_COMPACT,MemberSpec.data_type.replace('-','_'))
+
+                if MemberSpec.name == 'S':
+                    continue
+                elif MemberSpec.name == 'T':
+                    continue
+
+                if attrtype.member_data_items_.__contains__('valueOf_'):
+                    strval=''
+                    try:
+                        attrval = getattr(arobject, MemberSpec.name)
+                        strval = attrval.valueOf_
+                    except BaseException:
+                        pass
+                    vLayout.addLayout(ArxmlDetailItem(ArxmlDetailItemType.STRING,
+                                                      name=attrname,
+                                                      value=strval,
+                                                      labelminwidth=250))
+            except BaseException:
+                pass
             finally:
                 pass
 
@@ -112,10 +103,10 @@ class AREditorWidgetArxml(AREditorWidgetBase):
             return list()
         ret = list()
         for aRXmlFile in self.aRTool.ARXmlFiles:
-            ret = ret + self.GenTreeWidgetItemsRecursive(aRXmlFile.Autosar)
+            ret = ret + self.GenTreeWidgetItemsRecursive(aRXmlFile.Autosar, None)
         return ret
 
-    def GenTreeWidgetItemsRecursive(self, ARObject) -> list:
+    def GenTreeWidgetItemsRecursive(self, ARObject, name) -> list:
         if not ARObject:
             return list()
         if not hasattr(ARObject, 'member_data_items_'):
@@ -130,9 +121,45 @@ class AREditorWidgetArxml(AREditorWidgetBase):
             ThisName = ShortName
         elif ShortDefRef:
             ThisName = ShortDefRef
+        elif name:
+            ThisName = name
+        else:
+            ThisName = type(ARObject).__name__
 
         member_data_items_ = getattr(ARObject, 'member_data_items_')
 
+        thisnode = ArxmlContainerTreeWidgetItem(ARObject, name=ThisName)
+        ret.append(thisnode)
+        subchildrens = list()
+
+        for key in member_data_items_.keys():
+            MemberSpec = member_data_items_[key]
+
+            if MemberSpec.name == 'S':
+                continue
+            elif MemberSpec.name == 'T':
+                continue
+
+            attrval = getattr(ARObject, MemberSpec.name)
+            if not attrval:
+                continue
+            # attrval not None here
+
+            attrname = MemberSpec.name
+            if MemberSpec.child_attrs:
+                if MemberSpec.child_attrs.__contains__('name'):
+                    attrname = MemberSpec.child_attrs['name']
+
+            if isinstance(attrval, list):
+                for attrvali in attrval:
+                    subchildrens = subchildrens + self.GenTreeWidgetItemsRecursive(attrvali, attrname)
+                continue
+            else:
+                subchildrens = subchildrens + self.GenTreeWidgetItemsRecursive(attrval, attrname)
+            pass
+        for subchild in subchildrens:
+            thisnode.addChild(subchild)
+        '''
         if ThisName:
             thisnode = ArxmlContainerTreeWidgetItem(ARObject, name=ThisName)
             ret.append(thisnode)
@@ -181,6 +208,7 @@ class AREditorWidgetArxml(AREditorWidgetBase):
                 else:
                     ret = ret + self.GenTreeWidgetItemsRecursive(attrval)
                 pass
+        '''
         return ret
 
 
