@@ -176,6 +176,12 @@ class ARTool:
         self._LoadFiles(ARUtils.GetAllArxmlsInDirRecursive(dirpath))
         return
 
+    def SaveAll(self):
+        for aRXmlFile in self.ARXmlFiles:
+            aRXmlFile.Save()
+            pass
+        return
+
     def Clear(self):
         self.ARXmlFiles = list()
         self.TypeToObjectsDict = dict()

@@ -1,10 +1,13 @@
 import sys
+from ctypes.wintypes import BOOLEAN
 
-from enum import Enum
+from enum import Enum, EnumMeta
 
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
+
+import re
 
 from .AREditorWidgetBase import *
 
@@ -18,6 +21,25 @@ class AREditorWidgetArxml(AREditorWidgetBase):
     def __init__(self):
         super().__init__()
         self.qTreeWidget_Container.itemClicked.connect(self.__qTreeWidget_Container_itemClicked)
+
+        self.qTreeWidget_Container.setContextMenuPolicy(Qt.CustomContextMenu)  # 打开右键菜单的策略
+        self.qTreeWidget_Container.customContextMenuRequested.connect(self.qTreeWidget_ContainerCustomContextMenuRequested)  # 绑定事件
+
+
+    def qTreeWidget_ContainerCustomContextMenuRequested(self, pos):
+        item = self.qTreeWidget_Container.currentItem()
+        item1 = self.qTreeWidget_Container.itemAt(pos)
+        if item != None and item1 != None:
+            popMenu = QMenu()
+            popMenu.addAction(QAction(u'aaa', self))
+            popMenu.addAction(QAction(u'bbb', self))
+            popMenu.triggered[QAction].connect(self.processtrigger)
+            popMenu.exec_(QCursor.pos())
+        return
+
+    def processtrigger(self, q):
+        QMessageBox.information(None, "DDDD ", "CCCCC", QMessageBox.Yes)
+        return
 
     def __qTreeWidget_Container_itemClicked(self, item, column):
         selecteditems = self.qTreeWidget_Container.selectedItems()
@@ -56,37 +78,130 @@ class AREditorWidgetArxml(AREditorWidgetBase):
         for key in member_data_items_.keys():
             MemberSpec: AUTOSAR_00049_STRICT_COMPACT.MemberSpec_ = member_data_items_[key]
 
-            #if MemberSpec.container > 0:
+            # if MemberSpec.container > 0:
             #    continue
 
             try:
-                attrname = MemberSpec.child_attrs['name']
-                attrtype=getattr(AUTOSAR_00049_STRICT_COMPACT,MemberSpec.data_type.replace('-','_'))
-
                 if MemberSpec.name == 'S':
                     continue
                 elif MemberSpec.name == 'T':
                     continue
 
-                if attrtype.member_data_items_.__contains__('valueOf_'):
-                    strval=''
+                attrname = MemberSpec.child_attrs['name']
+
+                attrtypename0 = re.sub('^AR:', '', MemberSpec.data_type)
+                attrtypename1 = re.sub('[\\W]', '_', attrtypename0)
+
+                if hasattr(AUTOSAR_00049_STRICT_COMPACT, attrtypename1):
+                    attrtype = getattr(AUTOSAR_00049_STRICT_COMPACT, attrtypename1)
+
+                    attrtypemember_data_items_ = []
+                    try:
+                        attrtypemember_data_items_ = getattr(attrtype, "member_data_items_")
+                    except BaseException:
+                        attrtypemember_data_items_ = []
+                    finally:
+                        pass
+
+                    if attrtypemember_data_items_:
+                        if attrtype.member_data_items_.__contains__('valueOf_'):
+                            strval = ''
+                            try:
+                                attrval = getattr(arobject, MemberSpec.name)
+                                strval = attrval.valueOf_
+                            except BaseException:
+                                pass
+
+                            if (attrtypename1 == 'BOOLEAN'):
+                                detailitem = ArxmlDetailItem(arobject=arobject,
+                                                             itemtype=ArxmlDetailItemType.BOOL,
+                                                             name=attrname,
+                                                             value=strval,
+                                                             labelminwidth=250)
+                                vLayout.addLayout(detailitem)
+                                detailitem.afterEditedSignal.connect(self.ArxmlDetailItemAfterEdited)
+                                pass
+                            else:
+                                detailitem = ArxmlDetailItem(arobject=arobject,
+                                                             itemtype=ArxmlDetailItemType.STRING,
+                                                             name=attrname,
+                                                             value=strval,
+                                                             labelminwidth=250)
+                                vLayout.addLayout(detailitem)
+                                detailitem.afterEditedSignal.connect(self.ArxmlDetailItemAfterEdited)
+                                pass
+
+                        else:
+                            pass
+
+                    elif issubclass(attrtype, Enum):
+                        strval = ''
+                        try:
+                            attrval = getattr(arobject, MemberSpec.name)
+                            strval = attrval
+                        except BaseException:
+                            pass
+                        attrenums = []
+                        for attrenumi in attrtype:
+                            attrenums.append(attrenumi.value)
+                            pass
+                        detailitem = ArxmlDetailItem(arobject=arobject,
+                                                     itemtype=ArxmlDetailItemType.ENUM,
+                                                     name=attrname,
+                                                     value=strval,
+                                                     labelminwidth=250,
+                                                     enums=attrenums)
+                        vLayout.addLayout(detailitem)
+                        detailitem.afterEditedSignal.connect(self.ArxmlDetailItemAfterEdited)
+                        pass
+                elif (attrtypename1 == 'STRING__SIMPLE'):
+                    strval = ''
                     try:
                         attrval = getattr(arobject, MemberSpec.name)
-                        strval = attrval.valueOf_
+                        if attrval:
+                            strval = str(attrval)
                     except BaseException:
                         pass
-                    vLayout.addLayout(ArxmlDetailItem(ArxmlDetailItemType.STRING,
-                                                      name=attrname,
-                                                      value=strval,
-                                                      labelminwidth=250))
+                    detailitem = ArxmlDetailItem(arobject=arobject,
+                                                 itemtype=ArxmlDetailItemType.STRING,
+                                                 name=attrname,
+                                                 value=strval,
+                                                 labelminwidth=250)
+                    vLayout.addLayout(detailitem)
+                    detailitem.afterEditedSignal.connect(self.ArxmlDetailItemAfterEdited)
+                    pass
+
+
             except BaseException:
                 pass
             finally:
                 pass
 
         pass
-        self.qTextEdit_Desc.setText('fsf')
-        self.qTextEdit_Msg.setText('fsf')
+
+        descstr: str = ''
+
+        try:
+            typestr = type(arobject).__name__
+            try:
+                typestr = re.search(r'([\w]+)Type\d*\s*$', typestr, re.M).group(1)
+            except BaseException:
+                pass
+            descstr += 'Type: ' + typestr + "\n"
+        except BaseException:
+            pass
+
+        try:
+            descstr += 'Path: ' + self.aRTool.GetPath(arobject) + "\n"
+        except BaseException:
+            pass
+
+        self.qTextEdit_Desc.setText(descstr)
+
+    def ArxmlDetailItemAfterEdited(self, object, name, value):
+        #QMessageBox.information(None, "CCCC ", "CCCCC", QMessageBox.Yes)
+        self.IndicateUnSaved()
+        return
 
     def SetARTool(self, aRTool: ARTool):
         self.aRTool = aRTool
@@ -103,7 +218,16 @@ class AREditorWidgetArxml(AREditorWidgetBase):
             return list()
         ret = list()
         for aRXmlFile in self.aRTool.ARXmlFiles:
-            ret = ret + self.GenTreeWidgetItemsRecursive(aRXmlFile.Autosar, None)
+            # ret = ret + self.GenTreeWidgetItemsRecursive(aRXmlFile.Autosar, None)
+            filenamei = str(aRXmlFile.FileName)
+
+            filenamei1 = re.search(r'[^\\/]+\.(ar)?xml', filenamei, re.M | re.I).group()
+
+            thisnode = ArxmlContainerTreeWidgetItem(aRXmlFile, name=filenamei1)
+            ret.append(thisnode)
+            subchildren = self.GenTreeWidgetItemsRecursive(aRXmlFile.Autosar, None)
+            for subchild in subchildren:
+                thisnode.addChild(subchild)
         return ret
 
     def GenTreeWidgetItemsRecursive(self, ARObject, name) -> list:
@@ -231,17 +355,29 @@ class ArxmlDetailItemType(Enum):
 
 
 class ArxmlDetailItem(QVBoxLayout):
+    value: str = None
+    name: str = None
+    afterEditedSignal: pyqtSignal = pyqtSignal(object, str, str)
+    arobject = None
+
     def __init__(self,
-                 itemtype: ArxmlDetailItemType,
+                 arobject=None,
+                 itemtype: ArxmlDetailItemType = ArxmlDetailItemType.STRING,
                  name: str = '',
                  value: str = '',
                  labelminwidth=200,
                  enums: list = list()):
         super().__init__()
 
+        if not value:
+            value = ''
+
+        self.value = value
+        self.arobject = arobject
         self.isvaluesetting = False
 
         self.itemtype = itemtype
+        self.name = name
 
         HBoxLayout = QHBoxLayout()
         self.addLayout(HBoxLayout)
@@ -250,61 +386,79 @@ class ArxmlDetailItem(QVBoxLayout):
         space0.setFixedHeight(1)
         self.addWidget(space0)
 
+        space1 = QWidget()
+        space1.setFixedWidth(2)
+
+        HBoxLayout.addWidget(space1)
+        HBoxLayout.setStretch(0, 0)
+
         Lable = QLabel(name)
         if labelminwidth < 200:
             labelminwidth = 200
         Lable.setFixedWidth(labelminwidth)
         HBoxLayout.addWidget(Lable)
-        HBoxLayout.setStretch(0, 0)
+        HBoxLayout.setStretch(1, 0)
         if itemtype == ArxmlDetailItemType.STRING:
             self.__TextEditor = QLineEdit()
+            self.__TextEditor.editingFinished.connect(self.TextEditorEditingFinished)
+
             HBoxLayout.addWidget(self.__TextEditor)
-            HBoxLayout.setStretch(1, 1)
+            HBoxLayout.setStretch(2, 1)
             space = QFrame()
             space.setFixedWidth(20)
             HBoxLayout.addWidget(space)
-            HBoxLayout.setStretch(2, 0)
+            HBoxLayout.setStretch(3, 0)
         elif itemtype == ArxmlDetailItemType.FLOAT:
             self.__TextEditor = QLineEdit()
+            self.__TextEditor.editingFinished.connect(self.TextEditorEditingFinished)
+
             HBoxLayout.addWidget(self.__TextEditor)
-            HBoxLayout.setStretch(1, 1)
+            HBoxLayout.setStretch(2, 1)
             space = QFrame()
             space.setFixedWidth(20)
             HBoxLayout.addWidget(space)
-            HBoxLayout.setStretch(2, 0)
+            HBoxLayout.setStretch(3, 0)
         elif itemtype == ArxmlDetailItemType.INTEGER:
             self.__TextEditor = QLineEdit()
+            self.__TextEditor.editingFinished.connect(self.TextEditorEditingFinished)
+
             HBoxLayout.addWidget(self.__TextEditor)
-            HBoxLayout.setStretch(1, 1)
+            HBoxLayout.setStretch(2, 1)
             space = QFrame()
             space.setFixedWidth(20)
             HBoxLayout.addWidget(space)
-            HBoxLayout.setStretch(2, 0)
+            HBoxLayout.setStretch(3, 0)
         elif itemtype == ArxmlDetailItemType.ENUM:
             self.__EnumComboBox = QComboBox()
-            self.__EnumComboBox.setEditable(True)
+            self.__EnumComboBox.setEditable(False)
             if enums:
                 self.__EnumComboBox.addItems(enums)
 
+            self.__EnumComboBox.currentTextChanged.connect(self.EnumComboBoxCurrentTextChanged)
+
             HBoxLayout.addWidget(self.__EnumComboBox)
-            HBoxLayout.setStretch(1, 1)
+            HBoxLayout.setStretch(2, 1)
             space = QFrame()
             space.setFixedWidth(20)
             HBoxLayout.addWidget(space)
-            HBoxLayout.setStretch(2, 0)
+            HBoxLayout.setStretch(3, 0)
         elif itemtype == ArxmlDetailItemType.BOOL:
             self.__BoolCheckBox = QCheckBox()
+            self.__BoolCheckBox.stateChanged.connect(self.BoolCheckBoxStateChanged)
+
             HBoxLayout.addWidget(self.__BoolCheckBox)
-            HBoxLayout.setStretch(1, 0)
+            HBoxLayout.setStretch(2, 0)
             HBoxLayout.addStretch(1)
         elif itemtype == ArxmlDetailItemType.REFERENCE:
             self.__TextEditor = QLineEdit()
+            self.__TextEditor.editingFinished.connect(self.TextEditorEditingFinished)
+
             HBoxLayout.addWidget(self.__TextEditor)
-            HBoxLayout.setStretch(1, 1)
+            HBoxLayout.setStretch(2, 1)
             self.__BtnRef = QPushButton('.')
             self.__BtnRef.setFixedWidth(20)
             HBoxLayout.addWidget(self.__BtnRef)
-            HBoxLayout.setStretch(2, 0)
+            HBoxLayout.setStretch(3, 0)
         self.setValue(value)
 
     def setValue(self, value: str):
@@ -322,6 +476,8 @@ class ArxmlDetailItem(QVBoxLayout):
                 self.__BoolCheckBox.setChecked(False)
             elif value.upper() == 'TRUE':
                 self.__BoolCheckBox.setChecked(True)
+            elif value.upper() == 'YES':
+                self.__BoolCheckBox.setChecked(True)
             elif value.upper() == '1':
                 self.__BoolCheckBox.setChecked(True)
             else:
@@ -332,11 +488,11 @@ class ArxmlDetailItem(QVBoxLayout):
 
     def getValue(self) -> str:
         if self.itemtype == ArxmlDetailItemType.STRING:
-            return self.__TextEditor.getText()
+            return self.__TextEditor.text()
         elif self.itemtype == ArxmlDetailItemType.FLOAT:
-            return self.__TextEditor.getText()
+            return self.__TextEditor.text()
         elif self.itemtype == ArxmlDetailItemType.INTEGER:
-            return self.__TextEditor.getText()
+            return self.__TextEditor.text()
         elif self.itemtype == ArxmlDetailItemType.ENUM:
             return self.__EnumComboBox.currentText()
         elif self.itemtype == ArxmlDetailItemType.BOOL:
@@ -345,5 +501,31 @@ class ArxmlDetailItem(QVBoxLayout):
             else:
                 return "false"
         elif self.itemtype == ArxmlDetailItemType.REFERENCE:
-            return self.__TextEditor.getText()
+            return self.__TextEditor.text()
         return ''
+
+    def TextEditorEditingFinished(self):
+        if self.isvaluesetting:
+            return
+        self.AfterEdited()
+        return
+
+    def BoolCheckBoxStateChanged(self, status):
+        if self.isvaluesetting:
+            return
+        self.AfterEdited()
+        return
+
+    def EnumComboBoxCurrentTextChanged(self, newtext):
+        if self.isvaluesetting:
+            return
+        self.AfterEdited()
+        return
+
+    def AfterEdited(self):
+        if self.value == self.getValue():
+            return
+        self.value = self.getValue()
+        if self.afterEditedSignal:
+            self.afterEditedSignal.emit(self.arobject, self.name, self.value)
+        return

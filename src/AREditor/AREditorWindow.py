@@ -11,6 +11,7 @@ class AREditorWindow(QMainWindow):
     aRTool = ARTool()
     CfgParser = ConfigParser()
     CfgParserFileName = "AREditor.ini"
+    projdir = None
 
     def __init__(self):
         super().__init__()
@@ -35,9 +36,17 @@ class AREditorWindow(QMainWindow):
 
         self.fileMenu = self.menubar.addMenu('&File')
 
-        openAction = QAction('&Open Directory', self)
+        openAction = QAction('&Open Project Directory', self)
         openAction.triggered.connect(self.openActiontriggered)
         self.fileMenu.addAction(openAction)
+
+        saveAction = QAction('&Save', self)
+        saveAction.triggered.connect(self.saveActiontriggered)
+        self.fileMenu.addAction(saveAction)
+
+        reloadAction = QAction('&Reload', self)
+        reloadAction.triggered.connect(self.reloadActiontriggered)
+        self.fileMenu.addAction(reloadAction)
 
         closeAction = QAction('&Close', self)
         closeAction.triggered.connect(self.closeActiontriggered)
@@ -60,18 +69,22 @@ class AREditorWindow(QMainWindow):
         self.widget_arxml = AREditorWidgetArxml()
         self.widget_arxml.SetARTool(self.aRTool)
         self.widget_arxml.ReloadUI()
+        self.widget_arxml.unSavedSignal.connect(self.IndicateUnSaveByTitle)
 
         self.widget_ap = AREditorWidgetAdaptive()
         self.widget_ap.SetARTool(self.aRTool)
         self.widget_ap.ReloadUI()
+        self.widget_ap.unSavedSignal.connect(self.IndicateUnSaveByTitle)
 
         self.widget_cp = AREditorWidgetClassic()
         self.widget_cp.SetARTool(self.aRTool)
         self.widget_cp.ReloadUI()
+        self.widget_cp.unSavedSignal.connect(self.IndicateUnSaveByTitle)
 
         self.widget_bsw = AREditorWidgetBsw()
         self.widget_bsw.SetARTool(self.aRTool)
         self.widget_bsw.ReloadUI()
+        self.widget_bsw.unSavedSignal.connect(self.IndicateUnSaveByTitle)
 
         __tabs = QTabWidget()
 
@@ -97,14 +110,73 @@ class AREditorWindow(QMainWindow):
         return
 
     def openActiontriggered(self):
-        lastdir = self._ReadSetting('AREditorWindow', 'OpenProjectDirectory')
-        projdir = QFileDialog.getExistingDirectory(self, 'Open file', lastdir)
-        if ARUtils.IsStrEmpty(projdir):
-            return
-        self._WriteSetting('AREditorWindow', 'OpenProjectDirectory', projdir)
-        self.aRTool.Clear()
-        self.aRTool.LoadDirRecursive(projdir)
+        if not ARUtils.IsStrEmpty(self.projdir):
+            ret = QMessageBox.information(self, "open", "Are you sure to open another dictionary? All things will be lost!",
+                                      QMessageBox.Yes | QMessageBox.No)
+            if QMessageBox.Yes != ret:
+                return
+            pass
 
+        #close
+        self.aRTool.Clear()
+        self.projdir=None
+        self.setWindowTitle("Autosar Editor")
+        self.widget_arxml.ReloadUI()
+        self.widget_ap.ReloadUI()
+        self.widget_cp.ReloadUI()
+        self.widget_bsw.ReloadUI()
+
+        #select dir
+        lastdir = self._ReadSetting('AREditorWindow', 'OpenProjectDirectory')
+        self.projdir = QFileDialog.getExistingDirectory(self, 'Open file', lastdir)
+        if ARUtils.IsStrEmpty(self.projdir):
+            return
+        self._WriteSetting('AREditorWindow', 'OpenProjectDirectory', self.projdir)
+
+        #open
+        self.aRTool.LoadDirRecursive(self.projdir)
+
+        self.widget_arxml.ReloadUI()
+        self.widget_ap.ReloadUI()
+        self.widget_cp.ReloadUI()
+        self.widget_bsw.ReloadUI()
+
+        self.setWindowTitle(self.projdir+" - Autosar Editor")
+
+        return
+
+    def saveActiontriggered(self):
+        if ARUtils.IsStrEmpty(self.projdir):
+            return
+
+        ret = QMessageBox.information(self, "Save", "Are you sure to Save? All thing will be written to disk!", QMessageBox.Yes | QMessageBox.No)
+        if QMessageBox.Yes != ret:
+            return
+        self.aRTool.SaveAll()
+
+        self.setWindowTitle(self.projdir + " - Autosar Editor")
+
+        return
+
+    def reloadActiontriggered(self):
+        if ARUtils.IsStrEmpty(self.projdir):
+            return
+
+        ret = QMessageBox.information(self, "Reload", "Are you sure to Reload? All things will be lost!", QMessageBox.Yes | QMessageBox.No)
+        if QMessageBox.Yes != ret:
+            return
+
+        self.aRTool.Clear()
+        self.widget_arxml.ReloadUI()
+        self.widget_ap.ReloadUI()
+        self.widget_cp.ReloadUI()
+        self.widget_bsw.ReloadUI()
+
+        self.repaint()
+
+        self.aRTool.LoadDirRecursive(self.projdir)
+
+        self.setWindowTitle(self.projdir + " - Autosar Editor")
         self.widget_arxml.ReloadUI()
         self.widget_ap.ReloadUI()
         self.widget_cp.ReloadUI()
@@ -112,7 +184,17 @@ class AREditorWindow(QMainWindow):
         return
 
     def closeActiontriggered(self):
+        if ARUtils.IsStrEmpty(self.projdir):
+            return
+
+        ret = QMessageBox.information(self, "Close", "Are you sure to Close? All things will be lost!", QMessageBox.Yes | QMessageBox.No)
+        if QMessageBox.Yes != ret:
+            return
+
+        self.projdir=None
         self.aRTool.Clear()
+
+        self.setWindowTitle('Autosar Editor')
 
         self.widget_arxml.ReloadUI()
         self.widget_ap.ReloadUI()
@@ -121,10 +203,20 @@ class AREditorWindow(QMainWindow):
         return
 
     def exitActiontriggered(self):
-        ret = QMessageBox.information(self, "Exit", "Are you sure to Exit?", QMessageBox.Yes | QMessageBox.No)
-        if QMessageBox.Yes == ret:
-            qApp.quit()
+        ret = QMessageBox.information(self, "Exit", "Are you sure to Exit? All things will be lost!", QMessageBox.Yes | QMessageBox.No)
+        if QMessageBox.Yes != ret:
+            return
+
+        self.projdir = None
+        self.setWindowTitle('Autosar Editor')
+        #force quit without save
+        qApp.quit()
         return
+
+    def IndicateUnSaveByTitle(self):
+        if ARUtils.IsStrEmpty(self.projdir):
+            return
+        self.setWindowTitle("*"+self.projdir + " - Autosar Editor")
 
     def _ReadSetting(self, section, option):
         ret = None

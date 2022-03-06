@@ -8,6 +8,8 @@ from PyQt5.QtGui import *
 
 
 class AREditorWidgetBase(QFrame):
+    unSavedSignal:pyqtSignal = pyqtSignal()
+
     def __init__(self):
         super().__init__()
 
@@ -152,6 +154,11 @@ class AREditorWidgetBase(QFrame):
         self.ClearDesc()
         self.ClearMsg()
         self.ClearContainer()
+
+    def IndicateUnSaved(self):
+        if self.unSavedSignal:
+            self.unSavedSignal.emit()
+        return
 
 '''
 class AREditorDetailItemType(Enum):

@@ -44,6 +44,10 @@ class AREditorWidgetAdaptive(AREditorWidgetBase):
         ret.append(MachineTreeWidgetItem)
 
         ApplicationTreeWidgetItem.addChild(ArxmlContainerTreeWidgetItem(None, 'DataTypes'))
+
+        'Std Cpp Implementation Data Type'
+        
+
         ApplicationTreeWidgetItem.addChild(ArxmlContainerTreeWidgetItem(None, 'CompuMethods'))
         ApplicationTreeWidgetItem.addChild(ArxmlContainerTreeWidgetItem(None, 'ModeDeclarationGroups'))
         ApplicationTreeWidgetItem.addChild(ArxmlContainerTreeWidgetItem(None, 'PortInterfaces'))
